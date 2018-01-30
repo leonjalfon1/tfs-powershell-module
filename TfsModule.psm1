@@ -1719,7 +1719,7 @@ function Set-PullRequestReview
 
         .EXAMPLE
         Set-PullRequestReview -ReviewerId "18ec4589-9447-4e41-872c-a7a1304dd483" -PullRequestId "265" -Vote "5" -TeamProject "MyProject" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
-        Returns the response from the queue request, including the created build Id (as object)
+        Returns the response from the request (as object)
     #>
 
     param
@@ -1748,6 +1748,150 @@ function Set-PullRequestReview
 		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/pullRequests/$PullRequestId/reviewers/$ReviewerId" + "?api-version=$apiVersion"
         $response = Invoke-RestMethod -Method Put -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl -Body (ConvertTo-Json $body)
 		return $response
+    }
+    
+    catch
+    {
+        Write-Host "Failed to add reviewer {$ReviewerId} to Pull Request {$PullRequestId}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
+# Delete branch
+function Delete-GitBranch
+{
+    <#
+        .SYNOPSIS
+        Delete the specified branch
+
+        .DESCRIPTION
+        Delete the specified branch using the TFS Rest API version 3.0-preview
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/refs#modify-one-or-more-refs
+
+        .DEPENDENCIES
+        The funtion uses the function Get-GitReference
+
+        .PARAMETER BranchName
+        Branch Name
+        Example: feature/myfeature
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        Delete-GitBranch -BranchName "feature/myfeature" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -TeamProject "MyProject" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the response from the delete request (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $BranchName,
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        $ReferenceName = "refs/heads/" + $BranchName
+        $GitReferences = Get-GitReference -ReferenceType "heads" -CollectionUrl $CollectionUrl -TeamProject $TeamProject -GitRepository $GitRepository -Credentials $Credentials
+        $BranchReference = $GitReferences | Where ({ $_.name -eq $ReferenceName })
+        $BranchObjectId = $BranchReference.objectId
+        
+        $apiVersion = "1.0"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+        $body = @()
+        $body += @{ name = $ReferenceName; oldObjectId = $BranchObjectId; newObjectId = "0000000000000000000000000000000000000000" }
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/refs" + "?api-version=$apiVersion"
+        $response = Invoke-RestMethod -Method Post -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl -Body (ConvertTo-Json $body)
+		return $response.value.success
+    }
+    
+    catch
+    {
+        Write-Host "Failed to delete branch {$BranchName}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
+# Get References
+function Get-GitReference
+{
+    <#
+        .SYNOPSIS
+        Get a list of references
+
+        .DESCRIPTION
+        Get references using the TFS Rest API version 1.0
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/refs#get-a-list-of-references
+
+        .PARAMETER ReferenceType
+        Type of reference to retrieve [ all:"refs", tags:"tags", branches:"heads" ]
+        Example: heads
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        Get-GitReference -ReferenceType "refs" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -TeamProject "MyProject" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the references (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $ReferenceType,
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        #Delete Branch
+        $apiVersion = "1.0"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+        $body = @{ vote = $Vote }
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/refs/$ReferenceType" + "?api-version=$apiVersion"
+        $response = Invoke-RestMethod -Method Get -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl
+		return $response.value
     }
     
     catch
