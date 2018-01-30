@@ -1814,6 +1814,8 @@ function Delete-GitBranch
     {
         $ReferenceName = "refs/heads/" + $BranchName
         $GitReferences = Get-GitReference -ReferenceType "heads" -CollectionUrl $CollectionUrl -TeamProject $TeamProject -GitRepository $GitRepository -Credentials $Credentials
+        if($GitReferences -eq $null){return $null}
+
         $BranchReference = $GitReferences | Where ({ $_.name -eq $ReferenceName })
         $BranchObjectId = $BranchReference.objectId
         
@@ -1896,7 +1898,7 @@ function Get-GitReference
     
     catch
     {
-        Write-Host "Failed to add reviewer {$ReviewerId} to Pull Request {$PullRequestId}, Exception: $_" -ForegroundColor Red
+        Write-Host "Failed retrieve git references, Exception: $_" -ForegroundColor Red
 		return $null
     }
 }
