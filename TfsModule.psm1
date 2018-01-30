@@ -1589,6 +1589,175 @@ function Get-RootBranches
 }
 
 #======================================================================================================#
+# Version Control (Git)
+# https://www.visualstudio.com/en-us/docs/integrate/api/git/overview
+#======================================================================================================#
+
+# Create Pull Request
+function Create-PullRequest
+{
+    <#
+        .SYNOPSIS
+        Create a pull request
+
+        .DESCRIPTION
+        Create a pull request using the TFS Rest API version 3.0-preview
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/pull-requests/pull-requests#create-a-pull-request
+
+        .PARAMETER SourceRefName
+        Source reference name (branch)
+        Example: refs/heads/source-branch-name
+
+        .PARAMETER TargetRefName
+        Target reference name (branch)
+        Example: refs/heads/target-branch-name
+
+        .PARAMETER Title
+        Title for the pull request
+        Example: "My PR Title"
+
+        .PARAMETER Description
+        Description for the pull request
+        Example: "My PR Description"
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        Create-PullRequest -SourceRefName "refs/heads/source-branch" -TargetRefName "refs/heads/target-branch" -Title "PR Title" -Description "PR Description" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -TeamProject "MyProject" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the response from the request, including the created pull request Id (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $SourceRefName,
+        [Parameter(Mandatory=$true)]
+        $TargetRefName,
+        [Parameter(Mandatory=$true)]
+        $Title,
+        [Parameter(Mandatory=$true)]
+        $Description,
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        $apiVersion = "3.0-preview"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+        $body = @{ sourceRefName = $SourceRefName; targetRefName = $TargetRefName; title = $Title; description = $Description }
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/pullRequests" + "?api-version=$apiVersion"
+        $response = Invoke-RestMethod -Method Post -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl -Body (ConvertTo-Json $body)
+		return $response
+    }
+    
+    catch
+    {
+        Write-Host "Failed Create Pull Request from {$SourceRefName} to {$TargetRefName}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
+# Create Pull Request
+function Set-PullRequestReview
+{
+    <#
+        .SYNOPSIS
+        Set a pull request review
+
+        .DESCRIPTION
+        Set a pull requiest review using the TFS Rest API version 3.0-preview
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/pull-requests/reviewers
+
+        .PARAMETER ReviewerId
+        Reviewer Id
+        Example: 18ec4589-9447-4e41-872c-a7a1304dd483
+
+        .PARAMETER PullRequestId
+        Pull Request Id
+        Example: 265
+
+        .PARAMETER Vote
+        Review vote [ -10:"Rejected", -5:"Waiting for author", 0:"No response", 5:"Approved with suggestions", 10:"Approved" ]
+        Example: 5
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        Set-PullRequestReview -ReviewerId "18ec4589-9447-4e41-872c-a7a1304dd483" -PullRequestId "265" -Vote "5" -TeamProject "MyProject" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the response from the queue request, including the created build Id (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $ReviewerId,
+        [Parameter(Mandatory=$true)]
+        $PullRequestId,
+        [Parameter(Mandatory=$true)]
+        $Vote,
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        $apiVersion = "3.0-preview"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+        $body = @{ vote = $Vote }
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/pullRequests/$PullRequestId/reviewers/$ReviewerId" + "?api-version=$apiVersion"
+        $response = Invoke-RestMethod -Method Put -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl -Body (ConvertTo-Json $body)
+		return $response
+    }
+    
+    catch
+    {
+        Write-Host "Failed to add reviewer {$ReviewerId} to Pull Request {$PullRequestId}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
+#======================================================================================================#
 # Work Item Tracking
 # https://www.visualstudio.com/en-us/docs/integrate/api/wit/overview
 #======================================================================================================#
