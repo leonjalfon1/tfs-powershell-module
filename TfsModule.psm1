@@ -1903,6 +1903,79 @@ function Get-GitReference
     }
 }
 
+# Set Branch Lock/Unlock
+function Set-GitBranchLock
+{
+    <#
+        .SYNOPSIS
+        Lock/Unlock a branch
+
+        .DESCRIPTION
+        Lock/Unlock a branch using the TFS Rest API version 1.0
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/refs#lock-a-branch
+
+        .PARAMETER IsLocked
+        Lock or unlock the branch [ lock:"true", unlock:"false" ]
+        Example: true
+
+        .PARAMETER BranchName
+        Branch name
+        Example: branch-name
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        Set-GitBranchLock -IsLocked "true" -BranchName "target-branch" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -TeamProject "MyProject" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the response from the request, including the created pull request Id (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $IsLocked,
+        [Parameter(Mandatory=$true)]
+        $BranchName,
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        $apiVersion = "1.0"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+        $body = @{ isLocked = $IsLocked }
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/refs/heads/$BranchName" + "?api-version=$apiVersion"
+        $response = Invoke-RestMethod -Method Patch -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl -Body (ConvertTo-Json $body)
+		return $response
+    }
+    
+    catch
+    {
+        Write-Host "Failed to set branch lock as {$IsLocked}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
 #======================================================================================================#
 # Work Item Tracking
 # https://www.visualstudio.com/en-us/docs/integrate/api/wit/overview
