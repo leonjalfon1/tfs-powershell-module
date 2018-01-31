@@ -1887,10 +1887,8 @@ function Get-GitReference
 
     try
     {
-        #Delete Branch
         $apiVersion = "1.0"
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
-        $body = @{ vote = $Vote }
 		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/refs/$ReferenceType" + "?api-version=$apiVersion"
         $response = Invoke-RestMethod -Method Get -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl
 		return $response.value
@@ -1972,6 +1970,145 @@ function Set-GitBranchLock
     catch
     {
         Write-Host "Failed to set branch lock as {$IsLocked}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
+# Get Git Push
+function Get-GitPush
+{
+    <#
+        .SYNOPSIS
+        Get push details
+
+        .DESCRIPTION
+        Get push details using the TFS Rest API version 1.0
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/pushes#get-a-push
+
+        .PARAMETER PushId
+        Push Id
+        Example: 767
+
+        .PARAMETER IncludeRefUpdates
+        Return updated refs [ true, false ]
+        Example: heads
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        GitPush -PushId "767" -IncludeRefUpdates "true" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -TeamProject "MyProject" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the push details (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $PushId,
+        [Parameter(Mandatory=$true)]
+        $IncludeRefUpdates="false",
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        $apiVersion = "1.0"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/pushes/$PushId" + "?includeRefUpdates=$IncludeRefUpdates" + "&api-version=$apiVersion"
+        $response = Invoke-RestMethod -Method Get -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl
+		return $response
+    }
+    
+    catch
+    {
+        Write-Host "Failed retrieve git push {$PushId}, Exception: $_" -ForegroundColor Red
+		return $null
+    }
+}
+
+# Get Commits in Push
+function Get-CommitsInPush
+{
+    <#
+        .SYNOPSIS
+        Get commits from push
+
+        .DESCRIPTION
+        Get commits associated to push using the TFS Rest API version 1.0
+        https://www.visualstudio.com/en-us/docs/integrate/api/git/pushes#get-a-push
+
+        .PARAMETER PushId
+        Push Id
+        Example: 767
+
+        .PARAMETER CollectionUrl
+		Team Foundation Server Collection Url
+		Example: "http://tfsserver:8080/tfs/DefaultCollection"
+
+        .PARAMETER TeamProject
+        Team Project Name
+        Example: MyProject
+
+        .PARAMETER GitRepository
+        Name or Id of the Git repository
+        Example: MyRepo
+
+        .PARAMETER Credentials
+        Domain, username and password to access to TFS
+        Example: "domain\leonj:MyP@ssw0rd"
+
+        .EXAMPLE
+        Get-CommitsInPush -PushId "767" -CollectionUrl "http://tfsserver:8080/tfs/DefaultCollection" -TeamProject "MyProject" -GitRepository "MyRepo" -Credentials "domain\leonj:MyP@ssw0rd"
+        Returns the commits associated to the push (as object)
+    #>
+
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        $PushId,
+        [Parameter(Mandatory=$true)]
+        $CollectionUrl,
+        [Parameter(Mandatory=$true)]
+        $TeamProject,
+        [Parameter(Mandatory=$true)]
+        $GitRepository,
+        [Parameter(Mandatory=$true)]
+        $Credentials
+    )
+
+    try
+    {
+        $apiVersion = "1.0"
+		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}" -f $Credentials)))
+		$requestUrl = "$CollectionUrl/$TeamProject/_apis/git/repositories/$GitRepository/pushes/$PushId" + "?api-version=$apiVersion"
+        $push = Invoke-RestMethod -Method Get -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -ContentType application/json -Uri $requestUrl
+        $commitsInPush = $push.commits
+		return $commitsInPush
+    }
+    
+    catch
+    {
+        Write-Host "Failed retrieve git push {$PushId}, Exception: $_" -ForegroundColor Red
 		return $null
     }
 }
